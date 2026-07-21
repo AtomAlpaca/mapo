@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="在浏览器本地生成高中毕业蹭饭地图，数据不上传。" />
+    <title>饭友地图局 · 高中毕业蹭饭地图</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2218%22 fill=%22%231f5b44%22/><text x=%2232%22 y=%2244%22 text-anchor=%22middle%22 font-size=%2238%22 fill=%22white%22>饭</text></svg>" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#" aria-label="饭友地图局首页">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 28 28"><path d="M7 4v8.5M10 4v8.5M7 9h3M8.5 12.5V24M17 4v20M17 4c6 2 6 11 0 12"/></svg>
+        </span>
+        <span>饭友地图局</span>
+      </a>
+      <div class="header-actions">
+        <span class="privacy-pill"><i></i> 数据只在你的浏览器里</span>
+        <button class="icon-button" id="themeToggle" type="button" aria-label="切换深色模式" title="切换深色模式">
+          <svg class="sun-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <section class="workspace" id="workspace">
+        <div class="section-heading">
+          <div>
+            <h2>添加同学</h2>
+          </div>
+          <div class="form-heading-actions">
+            <button class="danger-text" id="clearButton" type="button" hidden>清空全部</button>
+            <button class="secondary-button" id="demoButton" type="button">随机生成 50 人</button>
+          </div>
+        </div>
+
+        <div class="entry-card">
+          <div class="map-copy-fields">
+            <label class="field map-title-field">
+              <span>地图标题</span>
+              <input id="mapTitleInput" maxlength="24" placeholder="例如：高三（1）班蹭饭图" />
+            </label>
+            <label class="field map-title-field">
+              <span>海报标语</span>
+              <input id="mapSloganInput" maxlength="32" placeholder="例如：山海有期，饭局常在" />
+            </label>
+          </div>
+          <form id="friendForm" autocomplete="off">
+            <label class="field field-name">
+              <span>同学姓名</span>
+              <input id="nameInput" name="name" maxlength="16" placeholder="例如：王小明" required />
+            </label>
+            <label class="field field-place">
+              <span>目标城市</span>
+              <input id="cityInput" name="city" list="citySuggestions" maxlength="30" placeholder="例如：上海 / 杭州" required />
+              <datalist id="citySuggestions"></datalist>
+            </label>
+            <label class="field field-school">
+              <span>院校 <b>可选</b></span>
+              <input id="schoolInput" name="school" maxlength="40" placeholder="例如：复旦大学" />
+            </label>
+            <button class="add-button" type="submit"><span aria-hidden="true">＋</span> 加入地图</button>
+            <button class="coordinate-trigger" id="coordinateTrigger" type="button" aria-expanded="false">找不到地点？手动坐标</button>
+            <div class="coordinate-fields" id="coordinateFields" hidden>
+              <label class="field"><span>经度</span><input id="lngInput" name="lng" inputmode="decimal" placeholder="121.47" /></label>
+              <label class="field"><span>纬度</span><input id="latInput" name="lat" inputmode="decimal" placeholder="31.23" /></label>
+            </div>
+          </form>
+          <div class="match-hint" id="matchHint" role="status" aria-live="polite">
+            <span class="pulse-dot"></span> 内置常见高校与 300+ 城市坐标，输入后自动匹配
+          </div>
+        </div>
+      </section>
+
+      <section class="map-section" id="mapSection">
+        <div class="section-heading map-heading">
+          <h2>海报预览</h2>
+          <div class="map-actions">
+            <label class="export-style-select">
+              <span>导出样式</span>
+              <select id="exportStyle" aria-label="选择导出样式">
+                <option value="paper">米白简报</option>
+                <option value="blueprint">青春蓝图</option>
+                <option value="dark">深色海报</option>
+                <option value="mono">黑白打印</option>
+              </select>
+            </label>
+            <button class="secondary-button" id="copyButton" type="button">复制数据</button>
+            <button class="secondary-button" id="exportButton" type="button">导出 PNG</button>
+            <button class="primary-button small" id="exportSvgButton" type="button">导出 SVG <span aria-hidden="true">↓</span></button>
+          </div>
+        </div>
+
+        <div class="map-card" id="mapCard">
+          <div class="preview-poster-heading">
+            <h1 id="mapTitle">高中毕业蹭饭地图</h1>
+            <p class="map-summary" id="mapSummary">等待第一位同学加入</p>
+            <i aria-hidden="true"></i>
+          </div>
+          <div class="map-layout" id="mapCalloutLayout">
+            <aside class="map-callouts map-callouts-left" id="leftCalloutList" aria-label="地图左侧地区名单"></aside>
+            <div class="map-canvas" id="mapCanvas">
+              <svg id="mapSvg" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" role="img" aria-label="饭友坐标地图">
+                <defs>
+                  <pattern id="smallGrid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-width="1"/></pattern>
+                </defs>
+                <rect class="map-grid" x="0" y="0" width="1000" height="560" fill="url(#smallGrid)" />
+                <g class="south-sea-frame" aria-hidden="true">
+                  <rect x="770" y="344" width="174" height="192" rx="9" />
+                  <text x="857" y="365">南海诸岛</text>
+                </g>
+                <g id="provinceLayer"></g>
+                <g id="provinceLabelLayer" aria-hidden="true"></g>
+                <g id="routeLayer"></g>
+                <g id="pinLayer"></g>
+              </svg>
+              <div class="empty-map" id="emptyMap">
+                <span class="empty-bowl" aria-hidden="true">🍚</span>
+                <strong>饭桌还空着</strong>
+                <p>添加同学后，这里就会亮起来</p>
+              </div>
+              <div class="map-tooltip" id="mapTooltip" hidden></div>
+            </div>
+            <aside class="map-callouts map-callouts-right" id="rightCalloutList" aria-label="地图右侧地区名单"></aside>
+          </div>
+          <div class="map-footer">
+            <strong id="previewSlogan" hidden></strong>
+            <small>完整省级行政区 · 含台湾省及南海诸岛 · 公开发布前请依法送审</small>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./city-data.js"></script>
+    <script src="./china-map.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
