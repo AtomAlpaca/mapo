@@ -94,13 +94,13 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
 .export-style-select select { min-width: 78px; border: 0; outline: 0; color: var(--ink); background: transparent; cursor: pointer; }
 .map-card {
   --preview-map-bg: #f5f0df;
+  --preview-roster-bg: #f7f4ec;
   --preview-card-bg: #fffdf5;
   --preview-ink: #252017;
   --preview-muted: #746e60;
   --preview-line: #b8ab91;
   --preview-province-stroke: #8f876f;
   --preview-label-stroke: #fffdf5;
-  --preview-route: #9a8263;
   --preview-grid: rgba(52,44,31,.035);
   --preview-accent: #9e3f2f;
   --preview-marker-stroke: #fffdf5;
@@ -108,6 +108,7 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
   --preview-province-1: #d9dfb3;
   --preview-province-2: #ead2a2;
   --preview-province-3: #c9d8bd;
+  position: relative;
   color: var(--preview-ink);
   background: var(--preview-map-bg);
   border: 1px solid var(--preview-ink);
@@ -116,13 +117,17 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
   box-shadow: none;
   transition: color .2s, background .2s, border-color .2s;
 }
+.map-card::before { content: ""; position: absolute; inset: 8px; z-index: 6; border: 1px solid var(--preview-line); border-radius: 2px; pointer-events: none; }
+.map-card::after { content: ""; position: absolute; inset: 15px; z-index: 7; pointer-events: none; background: linear-gradient(var(--preview-accent), var(--preview-accent)) left top / 25px 2px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) left top / 2px 25px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) right top / 25px 2px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) right top / 2px 25px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) left bottom / 25px 2px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) left bottom / 2px 25px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) right bottom / 25px 2px no-repeat, linear-gradient(var(--preview-accent), var(--preview-accent)) right bottom / 2px 25px no-repeat; }
 .preview-poster-heading { min-height: 112px; display: grid; place-items: center; align-content: center; gap: 5px; padding: 18px 28px 14px; color: var(--preview-ink); background: var(--preview-map-bg); text-align: center; border-bottom: 1px solid var(--preview-line); }
-.preview-poster-heading h1 { max-width: none; margin: 0; color: inherit; font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-size: clamp(35px, 4.2vw, 46px); line-height: 1.06; letter-spacing: -.04em; }
+.preview-poster-heading h1 { max-width: none; margin: 0; color: inherit; font-family: STKaiti, KaiTi, "Songti SC", serif; font-size: clamp(35px, 4.2vw, 46px); line-height: 1.06; letter-spacing: -.025em; }
 .preview-poster-heading .map-summary { margin: 0; color: var(--preview-muted); font-family: Arial, sans-serif; font-size: 13px; letter-spacing: .12em; }
-.preview-poster-heading i { width: 150px; margin-top: 4px; border-top: 3px solid var(--preview-accent); }
+.preview-poster-heading i { position: relative; width: 150px; margin-top: 4px; border-top: 3px solid var(--preview-accent); }
+.preview-poster-heading i::after { content: ""; position: absolute; left: 50%; top: -5px; width: 7px; height: 7px; background: var(--preview-map-bg); border: 2px solid var(--preview-accent); transform: translateX(-50%) rotate(45deg); }
 .map-layout { height: 680px; display: grid; grid-template-columns: 230px minmax(0, 1fr) 230px; align-items: stretch; }
 .map-canvas { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--preview-map-bg); }
-#mapSvg { width: 100%; height: 100%; color: var(--preview-grid); display: block; }
+.map-canvas::before { content: ""; position: absolute; inset: 12% 5%; background: radial-gradient(ellipse at center, var(--preview-card-bg) 0%, transparent 72%); opacity: .9; pointer-events: none; }
+#mapSvg { position: relative; z-index: 1; width: 100%; height: 100%; color: var(--preview-grid); display: block; }
 .map-canvas.is-empty #mapSvg { visibility: hidden; }
 .province { fill: var(--preview-province-0); stroke: var(--preview-province-stroke); stroke-width: .9; vector-effect: non-scaling-stroke; transition: fill .2s, stroke .2s; }
 .province:nth-child(4n+1) { fill: var(--preview-province-1); }
@@ -134,12 +139,12 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
 .province-label.micro { font-size: 7px; }
 .south-sea-frame rect { fill: none; stroke: var(--preview-province-stroke); stroke-width: 1; stroke-dasharray: 3 4; }
 .south-sea-frame text { fill: var(--preview-muted); font-size: 9px; font-weight: 750; text-anchor: middle; letter-spacing: .12em; }
-.route { fill: none; stroke: var(--preview-route); stroke-width: 2; stroke-dasharray: 5 7; animation: dash 20s linear infinite; }
-@keyframes dash { to { stroke-dashoffset: -240; } }
+.map-anchor { pointer-events: none; }
+.map-anchor-ring { stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .pin { cursor: pointer; }
 .pin-circle { stroke: var(--preview-marker-stroke); stroke-width: 1; transition: stroke .16s, stroke-width .16s, filter .16s; }
 .pin:hover .pin-circle, .pin.selected .pin-circle { stroke: var(--preview-ink); stroke-width: 1.7; filter: drop-shadow(0 0 2px rgba(19,19,19,.38)); }
-.empty-map { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; color: var(--preview-muted); pointer-events: none; }
+.empty-map { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; justify-items: center; text-align: center; color: var(--preview-muted); pointer-events: none; }
 .empty-map[hidden] { display: none; }
 .empty-bowl { font-size: 36px; filter: grayscale(.4); margin-bottom: 8px; }
 .empty-map strong { font-family: STSong, serif; font-size: 18px; }
@@ -147,15 +152,18 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
 .map-tooltip { position: absolute; z-index: 4; min-width: 170px; max-width: 240px; padding: 12px 14px; color: white; background: var(--ink); border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.2); pointer-events: none; font-size: 11px; transform: translate(-50%, -115%); }
 .map-tooltip strong { display: block; font-size: 13px; margin-bottom: 3px; }
 .map-tooltip span { color: rgba(255,255,255,.7); }
-.map-callouts { min-width: 0; min-height: 0; overflow-y: auto; padding: 16px 12px 20px; background: var(--preview-map-bg); scrollbar-width: thin; scrollbar-color: var(--preview-line) transparent; }
+.map-callouts { min-width: 0; min-height: 0; overflow-y: auto; padding: 18px 14px 22px; background: var(--preview-roster-bg); scrollbar-width: thin; scrollbar-color: var(--preview-line) transparent; }
 .map-callouts-left { border-right: 1px solid var(--preview-line); }
 .map-callouts-right { border-left: 1px solid var(--preview-line); }
 .preview-callout + .preview-callout { margin-top: 16px; }
 .preview-callout-heading { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 2px 6px; border-bottom: 1px dotted var(--preview-muted); }
 .preview-callout-heading::after { content: ""; position: absolute; bottom: -1px; width: 13px; border-top: 1px dotted var(--preview-muted); }
+.preview-callout-heading::before { content: ""; position: absolute; bottom: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--callout-color); }
 .map-callouts-left .preview-callout-heading::after { right: -13px; }
 .map-callouts-right .preview-callout-heading::after { left: -13px; }
-.preview-callout-heading strong { color: var(--callout-color); font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-size: 17px; line-height: 1.25; }
+.map-callouts-left .preview-callout-heading::before { right: -16px; }
+.map-callouts-right .preview-callout-heading::before { left: -16px; }
+.preview-callout-heading strong { color: var(--callout-color); font-family: STKaiti, KaiTi, "Songti SC", serif; font-size: 18px; line-height: 1.25; }
 .preview-callout-heading span { color: var(--preview-muted); font-size: 10px; white-space: nowrap; }
 .preview-callout-people { display: grid; gap: 1px; padding-top: 6px; }
 .preview-person-row { display: grid; grid-template-columns: minmax(0, 1fr) 19px; align-items: center; gap: 1px; }
@@ -166,7 +174,7 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
 .roster-delete { width: 19px; height: 19px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 2px; color: var(--preview-muted); background: transparent; cursor: pointer; opacity: .4; }
 .roster-delete:hover, .roster-delete:focus-visible { color: var(--preview-accent); background: var(--preview-card-bg); opacity: 1; }
 .map-footer { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 0 18px; border-top: 1px solid var(--preview-line); color: var(--preview-muted); background: var(--preview-map-bg); font-size: 9px; }
-.map-footer strong { color: var(--preview-accent); font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-size: 14px; letter-spacing: .08em; }
+.map-footer strong { color: var(--preview-accent); font-family: STKaiti, KaiTi, "Songti SC", serif; font-size: 15px; letter-spacing: .08em; }
 .map-footer small { margin-left: auto; font-size: inherit; text-align: right; }
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 20; transform: translate(-50%, 20px); padding: 11px 16px; color: white; background: var(--ink); border-radius: 99px; box-shadow: 0 12px 34px rgba(0,0,0,.22); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; font-size: 12px; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }

@@ -108,6 +108,42 @@ if (!EXPORT_THEMES[exportThemeId]) exportThemeId = "paper";
 let activeTooltipId = null;
 let pinPositions = new Map();
 
+function createFriendId() {
+  const cryptoApi = window.crypto || window.msCrypto;
+  if (typeof cryptoApi?.randomUUID === "function") return cryptoApi.randomUUID();
+  if (typeof cryptoApi?.getRandomValues === "function") {
+    const bytes = new Uint8Array(16);
+    cryptoApi.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map(byte => byte.toString(16).padStart(2, "0"));
+    return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+  }
+  return `friend-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+async function copyText(text) {
+  if (typeof navigator.clipboard?.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Ordinary HTTP pages may expose the API but still reject access.
+    }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+  const copied = typeof document.execCommand === "function" && document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("Copy is unavailable");
+}
+
 function normalize(value) {
   return value.trim().replace(/[\s·•省市区县]/g, "").replace(/学院$/, "大学");
 }
@@ -234,13 +270,13 @@ function applyPreviewTheme() {
   const card = $("#mapCard");
   const variables = {
     "--preview-map-bg": theme.mapBackground,
+    "--preview-roster-bg": theme.rosterBackground,
     "--preview-card-bg": theme.cardBackground,
     "--preview-ink": theme.ink,
     "--preview-muted": theme.muted,
     "--preview-line": theme.line,
     "--preview-province-stroke": theme.provinceStroke,
     "--preview-label-stroke": theme.labelStroke,
-    "--preview-route": theme.route,
     "--preview-grid": theme.grid,
     "--preview-accent": theme.accent,
     "--preview-marker-stroke": theme.markerStroke,
@@ -282,7 +318,8 @@ function renderRoster() {
   }
 
   const layout = planCalloutLayout(groupFriendsForRoster());
-  const palette = getExportTheme().markerPalette;
+  const theme = getExportTheme();
+  const palette = theme.markerPalette;
   const markup = entry => `
     <section class="preview-callout" style="--callout-color:${palette[entry.index % palette.length]}">
       <div class="preview-callout-heading"><strong>${escapeHtml(entry.group.region)}</strong><span>${entry.group.count} 人</span></div>
@@ -308,10 +345,10 @@ function renderMap() {
   $("#mapCanvas").classList.toggle("is-empty", empty);
   $("#emptyMap").hidden = !empty;
   $("#mapSummary").textContent = `${friends.length} 位同学 · ${cityCount} 座城市 · FOOD FRIENDS MAP`;
-  const palette = getExportTheme().markerPalette;
+  const theme = getExportTheme();
+  const palette = theme.markerPalette;
 
   const points = friends.map((friend, index) => ({ friend, index, xy: project(friend.lng, friend.lat), displayXY: null }));
-  const cityGroups = Object.groupBy ? Object.groupBy(points, item => item.friend.city) : points.reduce((acc, item) => ((acc[item.friend.city] ||= []).push(item), acc), {});
   const collisionGroups = points.reduce((groups, item) => {
     const key = `${Math.round(item.xy[0] / 6)}:${Math.round(item.xy[1] / 6)}`;
     (groups[key] ||= []).push(item);
@@ -326,13 +363,15 @@ function renderMap() {
       pinPositions.set(item.friend.id, item.displayXY);
     });
   });
-  const routes = [];
-  Object.values(cityGroups).forEach(group => {
-    if (group.length <= 3) {
-      for (let i = 1; i < group.length; i += 1) routes.push([group[0].displayXY, group[i].displayXY]);
-    }
-  });
-  $("#routeLayer").innerHTML = routes.map(([[x1,y1],[x2,y2]]) => `<path class="route" d="M${x1} ${y1} Q ${(x1+x2)/2} ${Math.min(y1,y2)-35} ${x2} ${y2}"/>`).join("");
+  const cityAnchors = planCalloutLayout(groupFriendsForRoster()).entries.map(entry => {
+    const color = palette[entry.index % palette.length];
+    const [x, y] = entry.anchor;
+    return `<g class="map-anchor" aria-hidden="true">
+      <circle class="map-anchor-ring" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="5" fill="${theme.mapBackground}" stroke="${color}"/>
+      <circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="1.8" fill="${color}"/>
+    </g>`;
+  }).join("");
+  $("#routeLayer").innerHTML = cityAnchors;
   $("#pinLayer").innerHTML = points.map(({friend, index, displayXY:[x,y]}) => {
     const color = palette[index % palette.length];
     return `<g class="pin" data-pin="${friend.id}" style="--pin-color:${color}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)})">
@@ -377,7 +416,7 @@ function loadDemo() {
   const destinations = createRandomDemoDestinations(DEMO_NAMES.length);
   friends = shuffle(DEMO_NAMES).map((name, index) => {
     const destination = destinations[index];
-    return { id:crypto.randomUUID(), name, ...destination, source:"院校" };
+    return { id:createFriendId(), name, ...destination, source:"院校" };
   });
   persist(); renderAll(); toast("已随机生成 50 位示例饭友");
   $("#mapSection").scrollIntoView({behavior:"smooth"});
@@ -414,7 +453,7 @@ $("#friendForm").addEventListener("submit", event => {
     $("#coordinateTrigger").click();
     return;
   }
-  friends.push({ id: crypto.randomUUID(), name, city: location.city || city, school, lng: location.lng, lat: location.lat, source: location.source });
+  friends.push({ id: createFriendId(), name, city: location.city || city, school, lng: location.lng, lat: location.lat, source: location.source });
   persist(); renderAll(); event.currentTarget.reset(); updateMatchHint();
   toast(`${name} 已加入饭局`);
 });
@@ -472,7 +511,7 @@ function showFriendTooltip(friend, toggle = false) {
   const point = pinPositions.get(friend.id) || project(friend.lng, friend.lat);
   tooltip.style.left = `${point[0] / 1000 * 100}%`;
   tooltip.style.top = `${point[1] / 560 * 100}%`;
-  tooltip.innerHTML = `<strong>${escapeHtml(friend.name)} · ${escapeHtml(friend.city)}</strong><span>${friend.school ? escapeHtml(friend.school) : "到这里发展"}<br>下次见面：记得请客 🍜</span>`;
+  tooltip.innerHTML = `<strong>${escapeHtml(friend.name)} · ${escapeHtml(friend.city)}</strong><span>${friend.school ? escapeHtml(friend.school) : "到这里发展"}</span>`;
   tooltip.hidden = false;
   activeTooltipId = friend.id;
   document.querySelectorAll("[data-pin]").forEach(element => element.classList.toggle("selected", element.dataset.pin === friend.id));
@@ -503,7 +542,7 @@ $("#mapCalloutLayout").addEventListener("click", event => {
 
 $("#copyButton").addEventListener("click", async () => {
   const payload = friends.map(({id, ...friend}) => friend);
-  try { await navigator.clipboard.writeText(JSON.stringify(payload, null, 2)); toast("饭友数据已复制"); }
+  try { await copyText(JSON.stringify(payload, null, 2)); toast("饭友数据已复制"); }
   catch { toast("浏览器没有授予剪贴板权限"); }
 });
 
@@ -518,7 +557,6 @@ function createExportMapSvg(theme) {
     .province-label{fill:${theme.muted};font:9px sans-serif;text-anchor:middle;paint-order:stroke;stroke:${theme.labelStroke};stroke-width:2.5px}
     .province-label.micro{font-size:7px}.south-sea-frame rect{fill:none;stroke:${theme.provinceStroke};stroke-dasharray:3 4}
     .south-sea-frame text{fill:${theme.muted};font:bold 9px sans-serif;text-anchor:middle}
-    .route{fill:none;stroke:${theme.route};stroke-width:2;stroke-dasharray:5 7}
     .pin-circle{stroke:${theme.markerStroke};stroke-width:.9}
   `;
   svg.prepend(exportStyles);
@@ -592,7 +630,7 @@ function planCalloutLayout(groups) {
 }
 
 function buildCalloutSvg(layout, theme) {
-  return layout.entries.map((entry, index) => {
+  return layout.entries.map(entry => {
     const isLeft = entry.side === "left";
     const textX = isLeft ? 40 : 1320;
     const textEnd = isLeft ? 282 : 1560;
@@ -613,6 +651,8 @@ function buildCalloutSvg(layout, theme) {
     }).join("");
     return `
       <path class="callout-line" d="M ${anchorX.toFixed(1)} ${anchorY.toFixed(1)} L ${elbowX} ${lineY.toFixed(1)} L ${edgeX} ${lineY.toFixed(1)}"/>
+      <circle class="callout-anchor-ring" cx="${anchorX.toFixed(1)}" cy="${anchorY.toFixed(1)}" r="5" fill="${theme.mapBackground}" stroke="${color}"/>
+      <circle cx="${anchorX.toFixed(1)}" cy="${anchorY.toFixed(1)}" r="1.8" fill="${color}"/>
       <circle cx="${edgeX}" cy="${lineY.toFixed(1)}" r="3.5" fill="${color}"/>
       <text class="callout-region" x="${textX}" y="${(entry.top + 24).toFixed(1)}" fill="${color}">${escapeHtml(fitSvgText(entry.group.region, 180, 24))}</text>
       <text class="callout-count" x="${textEnd}" y="${(entry.top + 23).toFixed(1)}" text-anchor="end">${entry.group.count} 人</text>
@@ -632,22 +672,39 @@ function createCalloutPosterSvgDocument(theme) {
   const sloganElement = mapSlogan
     ? `<text class="poster-slogan" x="800" y="${layout.height - 32}">${escapeHtml(mapSlogan)}</text>`
     : "";
+  const sideHeight = layout.height - 198;
   const source = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-labelledby="posterTitle posterDescription">
   <title id="posterTitle">${escapeHtml(mapTitle)}</title>
   <desc id="posterDescription">中央为中国地图，${friends.length} 位同学按地区分列两侧，并通过虚线连接对应地点。</desc>
   <style>
     text{font-family:"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif}
-    .poster-bg{fill:${theme.mapBackground}}.poster-title{fill:${theme.ink};font-size:46px;font-weight:700;text-anchor:middle}
-    .poster-summary{fill:${theme.muted};font-size:17px;text-anchor:middle;letter-spacing:2px}.poster-rule{stroke:${theme.accent};stroke-width:3}
-    .callout-line{fill:none;stroke:${theme.muted};stroke-width:1.3;stroke-dasharray:4 5}.callout-region{font-size:24px;font-weight:700}
+    .poster-bg{fill:${theme.mapBackground}}.poster-side{fill:${theme.rosterBackground};opacity:.72}.poster-frame{fill:none;stroke:${theme.line};stroke-width:1.5}
+    .poster-corner{fill:none;stroke:${theme.accent};stroke-width:3;stroke-linecap:round}.poster-diamond{fill:${theme.mapBackground};stroke:${theme.accent};stroke-width:2}
+    .poster-separator{stroke:${theme.line};stroke-width:1;stroke-dasharray:2 7}.poster-title{fill:${theme.ink};font-family:"STKaiti","KaiTi","Songti SC",serif;font-size:46px;font-weight:700;text-anchor:middle;letter-spacing:1px}
+    .poster-summary{fill:${theme.muted};font-size:17px;text-anchor:middle;letter-spacing:2px}.poster-rule{stroke:${theme.accent};stroke-width:3;stroke-linecap:round}
+    .callout-line{fill:none;stroke:${theme.muted};stroke-width:1.2;stroke-dasharray:2 5;stroke-linecap:round}.callout-anchor-ring{stroke-width:1.5}.callout-region{font-family:"STKaiti","KaiTi","Songti SC",serif;font-size:24px;font-weight:700}
     .callout-count{fill:${theme.muted};font-size:13px}.callout-person{fill:${theme.ink};font-size:16px}.callout-name{font-weight:700}
-    .callout-school{fill:${theme.muted};font-size:14px}.poster-slogan{fill:${theme.accent};font-size:22px;font-weight:700;text-anchor:middle;letter-spacing:3px}
+    .callout-school{fill:${theme.muted};font-size:14px}.poster-slogan{fill:${theme.accent};font-family:"STKaiti","KaiTi","Songti SC",serif;font-size:22px;font-weight:700;text-anchor:middle;letter-spacing:3px}
   </style>
+  <defs>
+    <radialGradient id="posterHalo">
+      <stop offset="0" stop-color="${theme.cardBackground}" stop-opacity=".9"/>
+      <stop offset="1" stop-color="${theme.cardBackground}" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
   <rect class="poster-bg" x="0" y="0" width="${layout.width}" height="${layout.height}"/>
+  <rect class="poster-side" x="16" y="128" width="284" height="${sideHeight}"/>
+  <rect class="poster-side" x="1300" y="128" width="284" height="${sideHeight}"/>
+  <ellipse cx="800" cy="${layout.mapY + 280}" rx="540" ry="330" fill="url(#posterHalo)"/>
+  <rect class="poster-frame" x="16" y="16" width="1568" height="${layout.height - 32}" rx="2"/>
+  <path class="poster-corner" d="M 16 46 V 16 H 46 M 1554 16 H 1584 V 46 M 1584 ${layout.height - 46} V ${layout.height - 16} H 1554 M 46 ${layout.height - 16} H 16 V ${layout.height - 46}"/>
+  <line class="poster-separator" x1="300" y1="144" x2="300" y2="${layout.height - 70}"/>
+  <line class="poster-separator" x1="1300" y1="144" x2="1300" y2="${layout.height - 70}"/>
   <text class="poster-title" x="800" y="68">${escapeHtml(mapTitle)}</text>
   <text class="poster-summary" x="800" y="100">${friends.length} 位同学 · ${cityCount} 座城市 · FOOD FRIENDS MAP</text>
   <line class="poster-rule" x1="680" y1="116" x2="920" y2="116"/>
+  <rect class="poster-diamond" x="796" y="112" width="8" height="8" transform="rotate(45 800 116)"/>
   ${mapSource}
   ${buildCalloutSvg(layout, theme)}
   ${sloganElement}
