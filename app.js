@@ -305,6 +305,7 @@ function renderMap() {
   if (activeTooltipId) hideFriendTooltip();
   const empty = friends.length === 0;
   const cityCount = new Set(friends.map(friend => friend.city)).size;
+  $("#mapCanvas").classList.toggle("is-empty", empty);
   $("#emptyMap").hidden = !empty;
   $("#mapSummary").textContent = `${friends.length} 位同学 · ${cityCount} 座城市 · FOOD FRIENDS MAP`;
   const palette = getExportTheme().markerPalette;

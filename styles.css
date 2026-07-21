@@ -123,6 +123,7 @@ h2 { margin: 0 0 7px; font-family: Georgia, "Songti SC", STSong, serif; font-siz
 .map-layout { height: 680px; display: grid; grid-template-columns: 230px minmax(0, 1fr) 230px; align-items: stretch; }
 .map-canvas { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--preview-map-bg); }
 #mapSvg { width: 100%; height: 100%; color: var(--preview-grid); display: block; }
+.map-canvas.is-empty #mapSvg { visibility: hidden; }
 .province { fill: var(--preview-province-0); stroke: var(--preview-province-stroke); stroke-width: .9; vector-effect: non-scaling-stroke; transition: fill .2s, stroke .2s; }
 .province:nth-child(4n+1) { fill: var(--preview-province-1); }
 .province:nth-child(4n+2) { fill: var(--preview-province-2); }
